@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist } from "next/font/google";
+import { Geist, Sora } from "next/font/google";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { cookies } from "next/headers";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
+const sora = Sora({ subsets: ["latin"], variable: "--font-workspace" });
 const THEME_COOKIE_KEY = "alum-atlas-theme";
 
 export const metadata: Metadata = {
@@ -36,7 +37,12 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("font-sans", geist.variable, initialTheme === "dark" && "dark")}
+      className={cn(
+        "font-sans",
+        geist.variable,
+        sora.variable,
+        initialTheme === "dark" && "dark",
+      )}
       data-theme={initialTheme}
       suppressHydrationWarning
     >
