@@ -153,4 +153,58 @@ describe("upsertGroupEntry", () => {
 
     expect(entriesUpsert).not.toHaveBeenCalled();
   });
+
+  it("rejects save when location text country hint conflicts with geocode country", async () => {
+    const group = {
+      id: "group-4",
+      slug: "geo-group",
+      title: "Geo",
+      description: null,
+      submissions_locked: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const groupsMaybeSingle = vi.fn().mockResolvedValue({ data: group, error: null });
+    const groupsEq = vi.fn(() => ({ maybeSingle: groupsMaybeSingle }));
+    const groupsSelect = vi.fn(() => ({ eq: groupsEq }));
+    const entriesUpsert = vi.fn();
+
+    createSupabaseServerClientMock.mockReturnValue({
+      from: (table: string) =>
+        table === "groups"
+          ? {
+              select: groupsSelect,
+            }
+          : {
+              upsert: entriesUpsert,
+            },
+    });
+
+    geocodeLocationMock.mockResolvedValue({
+      normalizedQuery: "toronto, canada",
+      lat: 41.8556,
+      lng: -94.0038,
+      countryCode: "US",
+      countryName: "United States",
+      stateRegion: "Iowa",
+      city: "Toronto",
+    });
+
+    const { upsertGroupEntry } = await import("@/lib/db");
+
+    await expect(
+      upsertGroupEntry("geo-group", {
+        displayName: "Jordan",
+        linkedinUrl: "https://www.linkedin.com/in/jordan",
+        companyName: "CanCo",
+        companyDomain: "canco.ca",
+        locationText: "Toronto, Canada",
+        profilePhotoUrl: undefined,
+        deviceToken: "device-token-xyz",
+      }),
+    ).rejects.toThrow("We couldn't verify this location in Canada");
+
+    expect(entriesUpsert).not.toHaveBeenCalled();
+  });
 });

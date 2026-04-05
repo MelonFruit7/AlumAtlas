@@ -110,7 +110,47 @@ describe("buildStateDotMapNodes", () => {
     expect(texas.lng).toBeCloseTo(-97.563461, 6);
   });
 
-  it("splits US into city aggregates at state semantic level", () => {
+  it("shows non-US regions as state/province dots at country level", () => {
+    const ontarioA = makeEntry({
+      id: "ca-on-1",
+      country_code: "CA",
+      country_name: "Canada",
+      state_region: "Ontario",
+      city: "Toronto",
+      lat: 43.6532,
+      lng: -79.3832,
+      is_us: false,
+    });
+    const ontarioB = makeEntry({
+      id: "ca-on-2",
+      country_code: "CA",
+      country_name: "Canada",
+      state_region: "Ontario",
+      city: "Ottawa",
+      lat: 45.4215,
+      lng: -75.6972,
+      is_us: false,
+    });
+    const quebec = makeEntry({
+      id: "ca-qc-1",
+      country_code: "CA",
+      country_name: "Canada",
+      state_region: "Quebec",
+      city: "Montreal",
+      lat: 45.5017,
+      lng: -73.5673,
+      is_us: false,
+    });
+
+    const result = buildStateDotMapNodes([ontarioA, ontarioB, quebec], "country");
+    const labels = result.nodes
+      .filter((node) => node.kind === "aggregate")
+      .map((node) => (node.kind === "aggregate" ? node.label : ""))
+      .sort();
+    expect(labels).toEqual(["Ontario, Canada", "Quebec, Canada"]);
+  });
+
+  it("splits all countries into city aggregates at state semantic level", () => {
     const austin = makeEntry({
       id: "a1",
       state_region: "Texas",
@@ -143,7 +183,7 @@ describe("buildStateDotMapNodes", () => {
       .sort();
     const peopleCount = result.nodes.filter((node) => node.kind === "person").length;
 
-    expect(aggregateLabels).toEqual(["Austin, Texas", "Dallas, Texas", "France"]);
+    expect(aggregateLabels).toEqual(["Austin, Texas", "Dallas, Texas", "Paris, France"]);
     expect(peopleCount).toBe(0);
   });
 
@@ -181,6 +221,36 @@ describe("buildStateDotMapNodes", () => {
     const peopleCount = result.nodes.filter((node) => node.kind === "person").length;
     const aggregateCount = result.nodes.filter((node) => node.kind === "aggregate").length;
     expect(peopleCount).toBe(11);
+    expect(aggregateCount).toBe(0);
+  });
+
+  it("shows people at city level for non-US entries too", () => {
+    const tokyo = makeEntry({
+      id: "jp-1",
+      country_code: "JP",
+      country_name: "Japan",
+      state_region: "Tokyo",
+      city: "Tokyo",
+      lat: 35.6762,
+      lng: 139.6503,
+      is_us: false,
+    });
+    const london = makeEntry({
+      id: "gb-1",
+      country_code: "GB",
+      country_name: "United Kingdom",
+      state_region: "England",
+      city: "London",
+      lat: 51.5072,
+      lng: -0.1276,
+      is_us: false,
+    });
+
+    const result = buildStateDotMapNodes([tokyo, london], "city");
+    const people = result.nodes.filter((node) => node.kind === "person");
+    const aggregateCount = result.nodes.filter((node) => node.kind === "aggregate").length;
+
+    expect(people).toHaveLength(2);
     expect(aggregateCount).toBe(0);
   });
 });

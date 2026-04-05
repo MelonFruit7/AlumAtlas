@@ -156,6 +156,35 @@ function resolveUSCityMeta(entry: EntryRecord): {
   };
 }
 
+function resolveCityMeta(entry: EntryRecord): {
+  cityId: string;
+  cityLabel: string;
+  stateLabelValue: string;
+  countryCode: string;
+} {
+  if (isEntryUS(entry)) {
+    const us = resolveUSCityMeta(entry);
+    return {
+      ...us,
+      countryCode: "US",
+    };
+  }
+
+  const countryCode = normalizeCountryCode(entry.country_code);
+  const country = countryLabel(entry);
+  const stateLabelValue = (entry.state_region ?? "").trim() || country;
+  const cityName = (entry.city ?? "").trim() || "Unknown City";
+  const stateKey = normalizeStateKey(stateLabelValue);
+  const cityKey = normalizeStateKey(cityName);
+
+  return {
+    cityId: `city:${countryCode}:${stateKey}:${cityKey}`,
+    cityLabel: entry.state_region ? `${cityName}, ${stateLabelValue}` : `${cityName}, ${country}`,
+    stateLabelValue,
+    countryCode,
+  };
+}
+
 export function resolveSemanticLevel(zoom: number): SemanticZoomLevel {
   if (zoom < 3) return "world";
   if (zoom < 5) return "country";
@@ -383,6 +412,22 @@ function countryNodes(entries: EntryRecord[]): StateDotPipelineResult {
     }
 
     const countryCode = normalizeCountryCode(entry.country_code);
+    const nonUSState = (entry.state_region ?? "").trim();
+    if (nonUSState) {
+      upsertGroup(
+        groups,
+        {
+          id: `country-state:${countryCode}:${normalizeStateKey(nonUSState)}`,
+          label: `${nonUSState}, ${countryLabel(entry)}`,
+          aggregateLevel: "state",
+          countryCode,
+          members: [],
+        },
+        entry,
+      );
+      continue;
+    }
+
     upsertGroup(
       groups,
       {
@@ -402,43 +447,24 @@ function countryNodes(entries: EntryRecord[]): StateDotPipelineResult {
 }
 
 function stateNodes(entries: EntryRecord[]): StateDotPipelineResult {
-  const usCityGroups = new Map<string, AggregateGroup>();
-  const nonUSGroups = new Map<string, AggregateGroup>();
+  const cityGroups = new Map<string, AggregateGroup>();
 
   for (const entry of entries) {
-    if (!isEntryUS(entry)) {
-      const countryCode = normalizeCountryCode(entry.country_code);
-      upsertGroup(
-        nonUSGroups,
-        {
-          id: `state-country:${countryCode}`,
-          label: countryLabel(entry),
-          aggregateLevel: "country",
-          countryCode,
-          members: [],
-        },
-        entry,
-      );
-      continue;
-    }
-
-    const city = resolveUSCityMeta(entry);
+    const city = resolveCityMeta(entry);
     upsertGroup(
-      usCityGroups,
+      cityGroups,
       {
         id: city.cityId,
         label: city.cityLabel,
         aggregateLevel: "city",
-        countryCode: "US",
+        countryCode: city.countryCode,
         members: [],
       },
       entry,
     );
   }
 
-  const usCityNodes = Array.from(usCityGroups.values()).map(aggregateNode);
-  const nonUSNodes = Array.from(nonUSGroups.values()).map(aggregateNode);
-  const nodes = [...usCityNodes, ...nonUSNodes].sort(compareAggregates);
+  const nodes = Array.from(cityGroups.values()).map(aggregateNode).sort(compareAggregates);
 
   return {
     nodes,
@@ -446,53 +472,33 @@ function stateNodes(entries: EntryRecord[]): StateDotPipelineResult {
 }
 
 function cityNodes(entries: EntryRecord[]): StateDotPipelineResult {
-  const usCityGroups = new Map<string, AggregateGroup>();
-  const nonUSGroups = new Map<string, AggregateGroup>();
+  const cityGroups = new Map<string, AggregateGroup>();
   const people: PersonMapNode[] = [];
 
   for (const entry of entries) {
-    if (!isEntryUS(entry)) {
-      const countryCode = normalizeCountryCode(entry.country_code);
-      upsertGroup(
-        nonUSGroups,
-        {
-          id: `city-country:${countryCode}`,
-          label: countryLabel(entry),
-          aggregateLevel: "country",
-          countryCode,
-          members: [],
-        },
-        entry,
-      );
-      continue;
-    }
-
-    const city = resolveUSCityMeta(entry);
+    const city = resolveCityMeta(entry);
     upsertGroup(
-      usCityGroups,
+      cityGroups,
       {
         id: city.cityId,
         label: city.cityLabel,
         aggregateLevel: "city",
-        countryCode: "US",
+        countryCode: city.countryCode,
         members: [],
       },
       entry,
     );
   }
 
-  const aggregates: AggregateMapNode[] = Array.from(nonUSGroups.values()).map(aggregateNode);
-
-  for (const group of usCityGroups.values()) {
+  for (const group of cityGroups.values()) {
     const memberNodes = group.members.map(personNode).sort(comparePeople);
     people.push(...memberNodes);
   }
 
-  aggregates.sort(compareAggregates);
   people.sort(comparePeople);
 
   return {
-    nodes: [...aggregates, ...people],
+    nodes: people,
   };
 }
 

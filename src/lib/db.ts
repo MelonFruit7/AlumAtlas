@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { hashAdminPassword } from "@/lib/admin-auth";
 import { normalizeCompanyDomain, resolveCompanyLogoUrl } from "@/lib/company";
 import { hashDeviceToken } from "@/lib/device";
-import { geocodeLocation } from "@/lib/location";
+import {
+  geocodeLocation,
+  inferCountryHintFromLocationText,
+  LocationLookupError,
+} from "@/lib/location";
 import { normalizeLinkedInUrl } from "@/lib/linkedin";
 import { generateGroupSlug } from "@/lib/slug";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -225,10 +229,28 @@ async function normalizeEntryPayload(
     | "profilePhotoUrl"
   >,
 ) {
+  const hintedCountryCode = inferCountryHintFromLocationText(input.locationText);
   const linkedinUrl = normalizeLinkedInUrl(input.linkedinUrl);
   const companyDomain = normalizeCompanyDomain(input.companyDomain);
   const companyLogoUrl = resolveCompanyLogoUrl(companyDomain);
   const geocoded = await geocodeLocation(input.locationText);
+
+  if (
+    hintedCountryCode &&
+    geocoded.countryCode.toUpperCase() !== hintedCountryCode
+  ) {
+    const countryLabel =
+      hintedCountryCode === "CA"
+        ? "Canada"
+        : hintedCountryCode === "GB"
+          ? "the United Kingdom"
+          : "the United States";
+    throw new LocationLookupError(
+      "LOCATION_NOT_FOUND",
+      `We couldn't verify this location in ${countryLabel}. Please include city, state/province, and country.`,
+      422,
+    );
+  }
 
   return {
     display_name: input.displayName.trim(),

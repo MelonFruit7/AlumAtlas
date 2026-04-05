@@ -33,6 +33,8 @@ type GeoapifyFetchOptions = {
   usBias?: boolean;
 };
 
+type CountryHintCode = "US" | "CA" | "GB";
+
 export type GeocodeValue = {
   normalizedQuery: string;
   lat: number;
@@ -63,6 +65,36 @@ export class LocationLookupError extends Error {
 
 function normalizeLocationQuery(query: string): string {
   return query.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function detectCountryHint(normalizedQuery: string): CountryHintCode | null {
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  const compactQuery = normalizedQuery.replace(/[.]/g, "");
+  const hasCanadaHint =
+    /\b(canada|canda|ontario|quebec|alberta|british columbia|manitoba|saskatchewan|nova scotia|new brunswick|newfoundland|labrador|prince edward island|yukon|nunavut|northwest territories)\b/.test(
+      compactQuery,
+    ) || /,\s*(on|qc|ab|bc|mb|sk|ns|nb|nl|pe|yt|nu|nt)\b/.test(compactQuery);
+
+  if (hasCanadaHint) {
+    return "CA";
+  }
+
+  if (/\b(united kingdom|uk|england|scotland|wales|northern ireland)\b/.test(compactQuery)) {
+    return "GB";
+  }
+
+  if (/\b(united states|usa|us)\b/.test(compactQuery)) {
+    return "US";
+  }
+
+  return null;
+}
+
+export function inferCountryHintFromLocationText(locationText: string): CountryHintCode | null {
+  return detectCountryHint(normalizeLocationQuery(locationText));
 }
 
 function getGeoapifyPriority(feature: GeoapifyFeature): number {
@@ -312,21 +344,40 @@ export async function fetchGeoapifyGeocode(query: string): Promise<GeocodeValue>
     );
   }
 
-  const usFeatures = await fetchGeoapifyFeatures(query, geoapifyApiKey, {
-    countryCode: "us",
-    limit: 8,
-    autocomplete: false,
-  });
-  const globalFeatures =
-    usFeatures.length > 0
-      ? usFeatures
-      : await fetchGeoapifyFeatures(query, geoapifyApiKey, {
-          limit: 8,
-          autocomplete: false,
-          usBias: true,
-        });
+  const countryHint = detectCountryHint(normalizedQuery);
+  let candidateFeatures: GeoapifyFeature[] = [];
 
-  const bestFeature = pickBestGeoapifyFeature(globalFeatures);
+  if (countryHint) {
+    candidateFeatures = await fetchGeoapifyFeatures(query, geoapifyApiKey, {
+      countryCode: countryHint.toLowerCase(),
+      limit: 8,
+      autocomplete: false,
+    });
+  }
+
+  if (candidateFeatures.length === 0) {
+    candidateFeatures = await fetchGeoapifyFeatures(query, geoapifyApiKey, {
+      limit: 8,
+      autocomplete: false,
+      usBias: countryHint === "US",
+    });
+  }
+
+  if (countryHint) {
+    candidateFeatures = candidateFeatures.filter(
+      (feature) => getCountryCode(feature) === countryHint,
+    );
+
+    if (candidateFeatures.length === 0) {
+      throw new LocationLookupError(
+        "LOCATION_NOT_FOUND",
+        `Could not find this location in ${countryHint === "CA" ? "Canada" : countryHint === "GB" ? "the United Kingdom" : "the United States"}. Try a more specific location.`,
+        422,
+      );
+    }
+  }
+
+  const bestFeature = pickBestGeoapifyFeature(candidateFeatures);
   if (!bestFeature) {
     throw new LocationLookupError(
       "LOCATION_NOT_FOUND",
@@ -349,6 +400,7 @@ export async function fetchGeoapifyGeocode(query: string): Promise<GeocodeValue>
 
 export async function geocodeLocation(locationText: string): Promise<GeocodeValue> {
   const normalizedQuery = normalizeLocationQuery(locationText);
+  const countryHint = detectCountryHint(normalizedQuery);
   const supabase = createSupabaseServerClient();
 
   const { data: cached } = await supabase
@@ -359,7 +411,7 @@ export async function geocodeLocation(locationText: string): Promise<GeocodeValu
     .eq("normalized_query", normalizedQuery)
     .maybeSingle();
 
-  if (cached) {
+  if (cached && (!countryHint || cached.country_code.toUpperCase() === countryHint)) {
     return {
       normalizedQuery: cached.normalized_query,
       lat: cached.lat,

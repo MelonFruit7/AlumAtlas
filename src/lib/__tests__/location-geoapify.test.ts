@@ -108,6 +108,133 @@ describe("geoapify geocoding helpers", () => {
     ]);
   });
 
+  it("honors explicit non-US country hints when geocoding", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string"
+          ? new URL(input)
+          : input instanceof URL
+            ? input
+            : new URL(input.url);
+
+      expect(url.searchParams.get("filter")).toBe("countrycode:ca");
+
+      return Promise.resolve(
+        jsonResponse({
+          features: [
+            {
+              properties: {
+                country: "Canada",
+                country_code: "ca",
+                state: "Ontario",
+                city: "Toronto",
+                result_type: "city",
+              },
+              geometry: {
+                type: "Point",
+                coordinates: [-79.3832, 43.6532],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchGeoapifyGeocode } = await import("@/lib/location");
+    const result = await fetchGeoapifyGeocode("Toronto, Ontario, Canada");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      countryCode: "CA",
+      countryName: "Canada",
+      stateRegion: "Ontario",
+      city: "Toronto",
+      lat: 43.6532,
+      lng: -79.3832,
+    });
+  });
+
+  it("treats Canadian province shorthand as a Canada hint", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string"
+          ? new URL(input)
+          : input instanceof URL
+            ? input
+            : new URL(input.url);
+
+      expect(url.searchParams.get("filter")).toBe("countrycode:ca");
+
+      return Promise.resolve(
+        jsonResponse({
+          features: [
+            {
+              properties: {
+                country: "Canada",
+                country_code: "ca",
+                state: "Ontario",
+                city: "Toronto",
+                result_type: "city",
+              },
+              geometry: {
+                type: "Point",
+                coordinates: [-79.3832, 43.6532],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchGeoapifyGeocode } = await import("@/lib/location");
+    const result = await fetchGeoapifyGeocode("Toronto, ON");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.countryCode).toBe("CA");
+  });
+
+  it("treats common 'Canda' typo as a Canada hint", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string"
+          ? new URL(input)
+          : input instanceof URL
+            ? input
+            : new URL(input.url);
+
+      expect(url.searchParams.get("filter")).toBe("countrycode:ca");
+
+      return Promise.resolve(
+        jsonResponse({
+          features: [
+            {
+              properties: {
+                country: "Canada",
+                country_code: "ca",
+                state: "Ontario",
+                city: "Toronto",
+                result_type: "city",
+              },
+              geometry: {
+                type: "Point",
+                coordinates: [-79.3832, 43.6532],
+              },
+            },
+          ],
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchGeoapifyGeocode } = await import("@/lib/location");
+    const result = await fetchGeoapifyGeocode("Toronto, Canda");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.countryCode).toBe("CA");
+  });
+
   it("returns empty search results for empty upstream matches", async () => {
     vi.stubGlobal(
       "fetch",

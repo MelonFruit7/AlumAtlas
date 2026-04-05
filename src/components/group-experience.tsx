@@ -575,7 +575,7 @@ export function GroupExperience({ group }: Props) {
           {photoError ? <p className="wgeu-message wgeu-message-error">{photoError}</p> : null}
 
           <button
-            className="wgeu-button wgeu-button-primary"
+            className="wgeu-button wgeu-button-primary wgeu-entry-submit"
             disabled={submitStatus === "loading" || !isFormValid || group.submissions_locked}
             type="submit"
           >

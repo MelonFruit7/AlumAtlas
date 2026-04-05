@@ -38,9 +38,23 @@ type AggregateHit = {
   radius: number;
 };
 
-const defaultStyleUrl =
+const defaultLightStyleUrl =
   process.env.NEXT_PUBLIC_MAP_STYLE_URL ??
   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const defaultDarkStyleUrl =
+  process.env.NEXT_PUBLIC_MAP_DARK_STYLE_URL ??
+  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+
+function isDarkThemeActive(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return document.documentElement.classList.contains("dark");
+}
+
+function mapStyleForCurrentTheme(): string {
+  return isDarkThemeActive() ? defaultDarkStyleUrl : defaultLightStyleUrl;
+}
 
 const FOCUS_PERSON_ZOOM = 10.9;
 
@@ -334,6 +348,7 @@ export function WorldMap({ slug, onReady }: Props) {
   const requestIdRef = useRef(0);
   const onReadyRef = useRef(onReady);
   const personCityKeyByIdRef = useRef<Map<string, string>>(new Map());
+  const currentMapStyleUrlRef = useRef<string>(mapStyleForCurrentTheme());
 
   const [semanticLevel, setSemanticLevel] = useState<"world" | "country" | "state" | "city">(
     "world",
@@ -487,6 +502,7 @@ export function WorldMap({ slug, onReady }: Props) {
       const radius = diameter / 2;
       const x = point.x;
       const y = point.y;
+      const isDark = isDarkThemeActive();
 
       if (x < -radius || x > width + radius || y < -radius || y > height + radius) {
         continue;
@@ -494,13 +510,13 @@ export function WorldMap({ slug, onReady }: Props) {
 
       context.beginPath();
       context.arc(x, y, radius, 0, Math.PI * 2);
-      context.fillStyle = "rgba(245, 230, 199, 0.88)";
+      context.fillStyle = isDark ? "rgba(72, 132, 180, 0.86)" : "rgba(245, 230, 199, 0.88)";
       context.fill();
-      context.strokeStyle = "rgba(36, 83, 90, 0.58)";
+      context.strokeStyle = isDark ? "rgba(188, 223, 252, 0.62)" : "rgba(36, 83, 90, 0.58)";
       context.lineWidth = 1;
       context.stroke();
 
-      context.fillStyle = "#173f45";
+      context.fillStyle = isDark ? "#e9f5ff" : "#173f45";
       context.fillText(node.count > 99 ? "99+" : String(node.count), x, y);
 
       hits.push({ node, x, y, radius });
@@ -614,7 +630,7 @@ export function WorldMap({ slug, onReady }: Props) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: defaultStyleUrl,
+      style: currentMapStyleUrlRef.current,
       center: [-98.5795, 39.8283],
       zoom: 2.2,
       minZoom: 1.5,
@@ -628,6 +644,33 @@ export function WorldMap({ slug, onReady }: Props) {
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "bottom-right");
     mapRef.current = map;
+
+    const syncMapStyleToTheme = () => {
+      const activeMap = mapRef.current;
+      if (!activeMap) {
+        return;
+      }
+      const nextStyleUrl = mapStyleForCurrentTheme();
+      if (nextStyleUrl === currentMapStyleUrlRef.current) {
+        return;
+      }
+      currentMapStyleUrlRef.current = nextStyleUrl;
+      hideAggregateTooltip();
+      activeMap.setStyle(nextStyleUrl);
+      activeMap.once("styledata", () => {
+        drawAggregateCanvas();
+        void loadNodesRef.current();
+      });
+    };
+
+    const rootElement = document.documentElement;
+    const themeObserver = new MutationObserver(() => {
+      syncMapStyleToTheme();
+    });
+    themeObserver.observe(rootElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
 
     loadNodesRef.current = async () => {
       const activeMap = mapRef.current;
@@ -950,6 +993,7 @@ export function WorldMap({ slug, onReady }: Props) {
       }
       focusRefreshTimeoutRef.current = null;
       setIsFocusNavigating(false);
+      themeObserver.disconnect();
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
       aggregateNodesRef.current = [];
