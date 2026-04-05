@@ -1096,6 +1096,28 @@ a {
   gap: 0.16rem;
 }
 
+.wgeu-map-board-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2e6388;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.wgeu-map-board-label::before {
+  content: "";
+  width: 1.6rem;
+  height: 1px;
+  background: color-mix(in srgb, #4b86ae 70%, white 30%);
+}
+
 .wgeu-map-kicker {
   display: inline-flex;
   width: fit-content;
@@ -1498,15 +1520,15 @@ a {
 .wgeu-person-modal-company-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
   color: var(--ink-soft);
   font-size: 0.84rem;
 }
 
 .wgeu-person-modal-company-logo-wrap {
-  width: 15px;
-  height: 15px;
-  border-radius: 0.3rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 0.48rem;
   border: 1px solid #dbd7cb;
   background: #f8f2e7;
   display: grid;
@@ -1525,7 +1547,7 @@ a {
   height: 100%;
   display: grid;
   place-items: center;
-  font-size: 0.52rem;
+  font-size: 0.74rem;
   font-weight: 800;
   color: #3f5668;
 }
@@ -1962,6 +1984,14 @@ a {
   border-color: #4a6f91;
   background: #1d3249;
   color: #9ecdf0;
+}
+
+.dark .wgeu-map-board-label {
+  color: #8ec5ef;
+}
+
+.dark .wgeu-map-board-label::before {
+  background: color-mix(in srgb, #8ec5ef 72%, transparent 28%);
 }
 
 .dark .wgeu-search-results {

@@ -474,7 +474,7 @@ export function AdminExperience({ group: initialGroup }: Props) {
       <section className="wgeu-admin-list">
         <header className="wgeu-map-header">
           <div className="wgeu-map-title-wrap">
-            <span className="wgeu-map-kicker">Admin Command Center</span>
+            <span className="wgeu-map-board-label">Admin Command Center</span>
             <h2>{group.title}</h2>
             <p>
               {entries.length} {entries.length === 1 ? "entry" : "entries"} on board.

@@ -595,7 +595,7 @@ export function GroupExperience({ group }: Props) {
       <section className="wgeu-map-column">
         <header className="wgeu-map-header">
           <div className="wgeu-map-title-wrap">
-            <span className="wgeu-map-kicker">Alum Atlas Board</span>
+            <span className="wgeu-map-board-label">Alum Atlas Board</span>
             <h2>{group.title}</h2>
             {group.description ? (
               <p>{group.description}</p>
