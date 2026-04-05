@@ -8,6 +8,16 @@ describe("buildMapDataUrl", () => {
     expect(url).toContain("zoom=4.276");
     expect(url).toContain("bbox=-97.8%2C30.1%2C-97.5%2C30.4");
   });
+
+  it("includes debugStateDots flag when enabled", () => {
+    const url = buildMapDataUrl(
+      "my slug",
+      2.2,
+      [-125, 24, -66, 49],
+      { debugStateDots: true },
+    );
+    expect(url).toContain("debugStateDots=1");
+  });
 });
 
 describe("createMoveEndScheduler", () => {
@@ -44,4 +54,3 @@ describe("createMoveEndScheduler", () => {
     expect(loader).toHaveBeenCalledTimes(0);
   });
 });
-

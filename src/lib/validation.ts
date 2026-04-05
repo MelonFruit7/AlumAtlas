@@ -29,7 +29,6 @@ export const createEntrySchema = z.object({
     .min(2, "Company name must be at least 2 characters.")
     .max(120),
   companyDomain: z.string().trim().min(3).max(255),
-  companyLogoUrl: z.string().url().optional(),
   locationText: z
     .string()
     .trim()

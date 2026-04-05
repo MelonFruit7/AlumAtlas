@@ -12,13 +12,24 @@ import type {
   CreateEntryInput,
   CreateGroupInput,
 } from "@/lib/validation";
-import type { EntryRecord, GroupRecord } from "@/types/domain";
+import type { EntryRecord, GroupRecord, PersonSearchResult } from "@/types/domain";
 
 type BBox = {
   minLng: number;
   minLat: number;
   maxLng: number;
   maxLat: number;
+};
+
+type EntrySearchRow = {
+  id: string;
+  display_name: string;
+  company_name: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  state_region: string | null;
+  country_name: string;
 };
 
 type GroupAuthRecord = GroupRecord & {
@@ -101,6 +112,108 @@ async function requireGroup(slug: string) {
   return group;
 }
 
+function normalizeSearchQuery(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function personMatchBucket(row: EntrySearchRow, normalizedQuery: string): number | null {
+  const name = row.display_name.trim().toLowerCase();
+  const company = row.company_name.trim().toLowerCase();
+
+  if (name.startsWith(normalizedQuery)) return 0;
+  if (name.includes(normalizedQuery)) return 1;
+  if (company.startsWith(normalizedQuery)) return 2;
+  if (company.includes(normalizedQuery)) return 3;
+  return null;
+}
+
+export function rankPersonSearchEntries(
+  rows: EntrySearchRow[],
+  query: string,
+  limit = 6,
+): PersonSearchResult[] {
+  const normalizedQuery = normalizeSearchQuery(query);
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
+  return rows
+    .map((row) => {
+      const bucket = personMatchBucket(row, normalizedQuery);
+      return bucket === null ? null : { bucket, row };
+    })
+    .filter((value): value is { bucket: number; row: EntrySearchRow } => value !== null)
+    .sort((left, right) => {
+      if (left.bucket !== right.bucket) {
+        return left.bucket - right.bucket;
+      }
+      const byName = left.row.display_name.localeCompare(right.row.display_name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return left.row.company_name.localeCompare(right.row.company_name);
+    })
+    .slice(0, Math.max(0, limit))
+    .map(({ row }) => ({
+      kind: "person",
+      id: row.id,
+      displayName: row.display_name,
+      companyName: row.company_name,
+      lat: row.lat,
+      lng: row.lng,
+      city: row.city,
+      stateRegion: row.state_region,
+      countryName: row.country_name,
+    }));
+}
+
+export async function searchEntriesForGroup(
+  slug: string,
+  query: string,
+  limit = 6,
+): Promise<PersonSearchResult[]> {
+  const normalizedQuery = normalizeSearchQuery(query);
+  if (normalizedQuery.length < 2) {
+    return [];
+  }
+
+  const supabase = createSupabaseServerClient();
+  const group = await requireGroup(slug);
+  const likeQuery = `%${normalizedQuery}%`;
+  const searchColumns =
+    "id, display_name, company_name, lat, lng, city, state_region, country_name";
+
+  const [nameResult, companyResult] = await Promise.all([
+    supabase
+      .from("entries")
+      .select(searchColumns)
+      .eq("group_id", group.id)
+      .ilike("display_name", likeQuery)
+      .limit(60)
+      .returns<EntrySearchRow[]>(),
+    supabase
+      .from("entries")
+      .select(searchColumns)
+      .eq("group_id", group.id)
+      .ilike("company_name", likeQuery)
+      .limit(60)
+      .returns<EntrySearchRow[]>(),
+  ]);
+
+  if (nameResult.error || companyResult.error) {
+    throw new Error("Could not search entries.");
+  }
+
+  const dedupedRows = new Map<string, EntrySearchRow>();
+  for (const row of [...(nameResult.data ?? []), ...(companyResult.data ?? [])]) {
+    if (!dedupedRows.has(row.id)) {
+      dedupedRows.set(row.id, row);
+    }
+  }
+
+  return rankPersonSearchEntries(Array.from(dedupedRows.values()), normalizedQuery, limit);
+}
+
 async function normalizeEntryPayload(
   input: Pick<
     CreateEntryInput,
@@ -108,14 +221,13 @@ async function normalizeEntryPayload(
     | "linkedinUrl"
     | "companyName"
     | "companyDomain"
-    | "companyLogoUrl"
     | "locationText"
     | "profilePhotoUrl"
   >,
 ) {
   const linkedinUrl = normalizeLinkedInUrl(input.linkedinUrl);
   const companyDomain = normalizeCompanyDomain(input.companyDomain);
-  const companyLogoUrl = resolveCompanyLogoUrl(companyDomain, input.companyLogoUrl);
+  const companyLogoUrl = resolveCompanyLogoUrl(companyDomain);
   const geocoded = await geocodeLocation(input.locationText);
 
   return {
@@ -323,4 +435,3 @@ export async function updateGroupAdminSettings(
 
   return data;
 }
-

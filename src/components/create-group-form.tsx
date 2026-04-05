@@ -130,7 +130,7 @@ export function CreateGroupForm() {
           className="wgeu-input"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Stanford CS 2021 Meetup"
+          placeholder="UCF Knights Alumni Network"
           maxLength={120}
           required
         />

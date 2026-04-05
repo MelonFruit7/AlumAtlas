@@ -70,3 +70,21 @@ export type SearchLocation = {
   city: string | null;
   semanticLevel: SemanticZoomLevel;
 };
+
+export type PersonSearchResult = {
+  kind: "person";
+  id: string;
+  displayName: string;
+  companyName: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  stateRegion: string | null;
+  countryName: string;
+};
+
+export type LocationSearchResult = SearchLocation & {
+  kind: "location";
+};
+
+export type SearchResult = PersonSearchResult | LocationSearchResult;

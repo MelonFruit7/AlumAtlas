@@ -16,16 +16,9 @@ describe("company helpers", () => {
     );
   });
 
-  it("prefers manual logo URL when provided", () => {
-    expect(
-      resolveCompanyLogoUrl("openai.com", " https://cdn.example.com/openai-logo.png "),
-    ).toBe("https://cdn.example.com/openai-logo.png");
-  });
-
-  it("falls back to favicon URL when manual logo URL is missing", () => {
+  it("resolves logo URLs from company domains", () => {
     expect(resolveCompanyLogoUrl("openai.com")).toBe(
       "https://www.google.com/s2/favicons?domain=openai.com&sz=128",
     );
   });
 });
-

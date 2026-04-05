@@ -51,32 +51,6 @@ describe("POST /api/groups/[slug]/entry", () => {
     expect(body.entry?.id).toBe("entry-1");
   });
 
-  it("passes manual companyLogoUrl through payload validation", async () => {
-    upsertGroupEntryMock.mockResolvedValueOnce({ id: "entry-2" });
-    const { POST } = await import("./route");
-
-    const request = new Request("http://localhost/api/groups/demo/entry", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...buildValidPayload(),
-        companyLogoUrl: "https://cdn.example.com/acme-logo.png",
-      }),
-    });
-
-    const response = await POST(request, {
-      params: Promise.resolve({ slug: "demo" }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(upsertGroupEntryMock).toHaveBeenCalledWith(
-      "demo",
-      expect.objectContaining({
-        companyLogoUrl: "https://cdn.example.com/acme-logo.png",
-      }),
-    );
-  });
-
   it("returns 422 with explicit message for location not found errors", async () => {
     const { LocationLookupError } = await import("@/lib/location");
     upsertGroupEntryMock.mockRejectedValueOnce(

@@ -26,10 +26,10 @@ type SpreadOptions = {
   ringSize?: number;
 };
 
-const DEFAULT_COLLISION_RADIUS_PX = 132;
-const DEFAULT_BASE_RADIUS_PX = 140;
-const DEFAULT_RING_STEP_PX = 86;
-const RING_SIZE = 8;
+const DEFAULT_COLLISION_RADIUS_PX = 176;
+const DEFAULT_BASE_RADIUS_PX = 212;
+const DEFAULT_RING_STEP_PX = 128;
+const RING_SIZE = 6;
 
 function hashString(input: string): number {
   let hash = 0;

@@ -1,12 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PhotoCropper } from "@/components/photo-cropper";
 import { WorldMap, type MapController } from "@/components/world-map";
 import { getOrCreateDeviceToken } from "@/lib/device";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
-import type { GroupRecord, SearchLocation, SemanticZoomLevel } from "@/types/domain";
+import type {
+  GroupRecord,
+  LocationSearchResult,
+  PersonSearchResult,
+  SearchResult,
+  SemanticZoomLevel,
+} from "@/types/domain";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -47,7 +53,6 @@ type FormState = {
   linkedinUrl: string;
   companyName: string;
   companyDomain: string;
-  companyLogoUrl: string;
   locationText: string;
   profilePhotoUrlInput: string;
 };
@@ -57,7 +62,6 @@ const initialFormState: FormState = {
   linkedinUrl: "",
   companyName: "",
   companyDomain: "",
-  companyLogoUrl: "",
   locationText: "",
   profilePhotoUrlInput: "",
 };
@@ -74,11 +78,16 @@ export function GroupExperience({ group }: Props) {
   const [photoError, setPhotoError] = useState("");
   const [mapController, setMapController] = useState<MapController | null>(null);
   const [searchValue, setSearchValue] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchLocation[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingExistingProfile, setEditingExistingProfile] = useState(false);
   const [existingProfileLoading, setExistingProfileLoading] = useState(true);
+  const searchRequestIdRef = useRef(0);
+  const searchAbortControllerRef = useRef<AbortController | null>(null);
+  const skipNextSearchRef = useRef(false);
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
 
   const handleMapReady = useCallback((controller: MapController) => {
     setMapController(controller);
@@ -137,7 +146,6 @@ export function GroupExperience({ group }: Props) {
           linkedinUrl: json.entry.linkedin_url ?? "",
           companyName: json.entry.company_name ?? "",
           companyDomain: json.entry.company_domain ?? "",
-          companyLogoUrl: json.entry.company_logo_url ?? "",
           locationText: json.entry.location_text ?? "",
           profilePhotoUrlInput: json.entry.profile_photo_url ?? "",
         });
@@ -159,41 +167,76 @@ export function GroupExperience({ group }: Props) {
     };
   }, [group.slug]);
 
+  const closeSearchResults = useCallback(() => {
+    setIsSearchOpen(false);
+    setSearchResults([]);
+    setSearchMessage("");
+    setSearchLoading(false);
+    searchAbortControllerRef.current?.abort();
+    searchAbortControllerRef.current = null;
+    searchRequestIdRef.current += 1;
+  }, []);
+
   useEffect(() => {
-    if (searchValue.trim().length < 2) {
+    const trimmedSearch = searchValue.trim();
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      return;
+    }
+    if (trimmedSearch.length < 2) {
       setSearchResults([]);
       setSearchMessage("");
+      setSearchLoading(false);
+      setIsSearchOpen(false);
+      searchAbortControllerRef.current?.abort();
+      searchAbortControllerRef.current = null;
       return;
     }
 
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
     const timeout = window.setTimeout(async () => {
+      searchAbortControllerRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortControllerRef.current = controller;
       setSearchLoading(true);
       setSearchMessage("");
       try {
         const response = await fetch(
-          `/api/groups/${group.slug}/search?q=${encodeURIComponent(searchValue)}`,
+          `/api/groups/${group.slug}/search?q=${encodeURIComponent(trimmedSearch)}`,
           {
             cache: "no-store",
+            signal: controller.signal,
           },
         );
-        const json = (await response.json()) as {
-          results?: SearchLocation[];
-          error?: string;
-        };
+        const json = (await response.json()) as { results?: SearchResult[]; error?: string };
+        if (requestId !== searchRequestIdRef.current) {
+          return;
+        }
         if (!response.ok || !Array.isArray(json.results)) {
           setSearchResults([]);
           setSearchMessage(json.error ?? "Search is unavailable right now.");
+          setIsSearchOpen(false);
           return;
         }
         setSearchResults(json.results);
+        setIsSearchOpen(json.results.length > 0);
         if (json.results.length === 0) {
-          setSearchMessage("No locations found. Try City, State or City, Country.");
+          setSearchMessage("No people or locations found.");
         }
-      } catch {
-        setSearchResults([]);
-        setSearchMessage("Search is unavailable right now.");
+      } catch (error) {
+        if (
+          !(error instanceof DOMException && error.name === "AbortError") &&
+          !(error instanceof Error && error.name === "AbortError")
+        ) {
+          setSearchResults([]);
+          setSearchMessage("Search is unavailable right now.");
+          setIsSearchOpen(false);
+        }
       } finally {
-        setSearchLoading(false);
+        if (requestId === searchRequestIdRef.current) {
+          setSearchLoading(false);
+        }
       }
     }, 280);
 
@@ -201,6 +244,34 @@ export function GroupExperience({ group }: Props) {
       window.clearTimeout(timeout);
     };
   }, [group.slug, searchValue]);
+
+  useEffect(() => {
+    function handleOutsidePointerDown(event: PointerEvent) {
+      if (!searchWrapRef.current?.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      searchAbortControllerRef.current?.abort();
+      searchAbortControllerRef.current = null;
+    };
+  }, []);
 
   async function uploadPhoto(file: File): Promise<string> {
     const signResponse = await fetch("/api/uploads/profile-photo", {
@@ -301,7 +372,6 @@ export function GroupExperience({ group }: Props) {
         formState.profilePhotoUrlInput,
         "Profile photo URL",
       );
-      const companyLogoUrl = parseHttpUrl(formState.companyLogoUrl, "Company logo URL");
 
       let profilePhotoUrl = profilePhotoUrlFromInput;
 
@@ -324,7 +394,6 @@ export function GroupExperience({ group }: Props) {
           linkedinUrl: formState.linkedinUrl,
           companyName: formState.companyName,
           companyDomain: formState.companyDomain,
-          companyLogoUrl,
           locationText: formState.locationText,
           profilePhotoUrl,
           deviceToken,
@@ -351,23 +420,19 @@ export function GroupExperience({ group }: Props) {
       <aside className="wgeu-panel">
         <header className="wgeu-panel-header">
           <h2>Drop Your Pin</h2>
-          <p>
-            Add your latest location and current company. Your name links to your LinkedIn
-            profile. If you already submitted from this device, this form updates your existing
-            profile instead of creating a new one.
-          </p>
+          <p>Add your location and current company. Your name links to LinkedIn.</p>
           {group.submissions_locked ? (
             <p className="wgeu-message wgeu-message-error">
               Submissions are currently locked by the board admin.
             </p>
           ) : null}
           {existingProfileLoading ? (
-            <p className="wgeu-message wgeu-message-loading">Checking your existing profile...</p>
+            <p className="wgeu-message wgeu-message-loading">Checking saved profile...</p>
           ) : null}
           {!existingProfileLoading && editingExistingProfile ? (
-            <p className="wgeu-message wgeu-message-success">
-              You are editing your existing profile on this device.
-            </p>
+            <div className="wgeu-editing-alert" role="status">
+              Editing your saved profile on this device.
+            </div>
           ) : null}
         </header>
 
@@ -425,19 +490,6 @@ export function GroupExperience({ group }: Props) {
               placeholder="stripe.com"
               disabled={group.submissions_locked}
               required
-            />
-          </label>
-
-          <label className="wgeu-label">
-            Company Logo URL (Optional Override)
-            <input
-              className="wgeu-input"
-              value={formState.companyLogoUrl}
-              onChange={(event) =>
-                setFormState((current) => ({ ...current, companyLogoUrl: event.target.value }))
-              }
-              placeholder="https://cdn.example.com/logo.png"
-              disabled={group.submissions_locked}
             />
           </label>
 
@@ -542,43 +594,91 @@ export function GroupExperience({ group }: Props) {
 
       <section className="wgeu-map-column">
         <header className="wgeu-map-header">
-          <div>
+          <div className="wgeu-map-title-wrap">
+            <span className="wgeu-map-kicker">Alum Atlas Board</span>
             <h2>{group.title}</h2>
-            {group.description ? <p>{group.description}</p> : null}
+            {group.description ? (
+              <p>{group.description}</p>
+            ) : (
+              <p>Track where your student organization members and alumni landed.</p>
+            )}
           </div>
 
-          <div className="wgeu-search-wrap">
+          <div className="wgeu-search-wrap" ref={searchWrapRef}>
             <input
               className="wgeu-input"
-              placeholder="Search city, state, or country"
+              placeholder="Search people, city, state, or country"
               value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
+              onChange={(event) => {
+                setSearchValue(event.target.value);
+                setSearchMessage("");
+                if (event.target.value.trim().length >= 2) {
+                  setIsSearchOpen(true);
+                }
+              }}
+              onFocus={() => {
+                if (searchResults.length > 0) {
+                  setIsSearchOpen(true);
+                }
+              }}
             />
             {searchLoading ? <span className="wgeu-search-status">Searching...</span> : null}
             {!searchLoading && searchMessage ? (
               <span className="wgeu-search-status">{searchMessage}</span>
             ) : null}
-            {searchResults.length > 0 ? (
+            {isSearchOpen && searchResults.length > 0 ? (
               <ul className="wgeu-search-results">
-                {searchResults.map((result) => (
-                  <li key={`${result.lat}-${result.lng}-${result.label}`}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchValue(result.label);
-                        setSearchResults([]);
-                        setSearchMessage("");
-                        mapController?.flyTo(
-                          result.lat,
-                          result.lng,
-                          semanticLevelToZoom(result.semanticLevel),
-                        );
-                      }}
-                    >
-                      {result.label}
-                    </button>
-                  </li>
-                ))}
+                {searchResults.some((result) => result.kind === "person") ? (
+                  <li className="wgeu-search-section-label">People</li>
+                ) : null}
+                {searchResults
+                  .filter((result): result is PersonSearchResult => result.kind === "person")
+                  .map((result) => (
+                    <li key={`person-${result.id}`}>
+                      <button
+                        className="wgeu-search-result-button wgeu-search-result-person"
+                        type="button"
+                        onClick={() => {
+                          skipNextSearchRef.current = true;
+                          setSearchValue(result.displayName);
+                          closeSearchResults();
+                          mapController?.focusPerson(result.id, result.lat, result.lng);
+                        }}
+                      >
+                        <span className="wgeu-search-person-name">{result.displayName}</span>
+                        <span className="wgeu-search-person-meta">
+                          {result.companyName}
+                          {result.city ? ` · ${result.city}` : ""}
+                          {result.stateRegion ? `, ${result.stateRegion}` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                {searchResults.some((result) => result.kind === "location") ? (
+                  <li className="wgeu-search-section-label">Locations</li>
+                ) : null}
+                {searchResults
+                  .filter((result): result is LocationSearchResult => result.kind === "location")
+                  .map((result) => (
+                    <li key={`location-${result.lat}-${result.lng}-${result.label}`}>
+                      <button
+                        className="wgeu-search-result-button wgeu-search-result-location"
+                        type="button"
+                        onClick={() => {
+                          skipNextSearchRef.current = true;
+                          setSearchValue(result.label);
+                          closeSearchResults();
+                          mapController?.flyTo(
+                            result.lat,
+                            result.lng,
+                            semanticLevelToZoom(result.semanticLevel),
+                          );
+                        }}
+                      >
+                        {result.label}
+                      </button>
+                    </li>
+                  ))}
               </ul>
             ) : null}
           </div>

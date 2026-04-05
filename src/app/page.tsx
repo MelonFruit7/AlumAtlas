@@ -8,35 +8,63 @@ export default function Home() {
     <main className="wgeu-root wgeu-home-page">
       <section className="wgeu-home-shell">
         <section className="wgeu-home-hero">
-          <p className="wgeu-eyebrow">WGEU · Where The Group Ended Up</p>
-          <h1>One link for your group, one living map for every story.</h1>
-          <p className="wgeu-subtitle">
-            Start a shared board in seconds, collect updates from everyone, and watch where your
-            people ended up around the world.
-          </p>
-          <div className="wgeu-chip-row">
-            <span className="wgeu-chip">World to City</span>
-            <span className="wgeu-chip">LinkedIn Profiles</span>
-            <span className="wgeu-chip">Live Map Capsules</span>
+          <div className="wgeu-home-hero-card">
+            <p className="wgeu-eyebrow">Alum Atlas</p>
+            <h1>Build your alumni atlas.</h1>
+            <p className="wgeu-subtitle">
+              For student organizations across the U.S. to track where members start their careers
+              after graduation.
+            </p>
+          </div>
+          <div className="wgeu-home-lower">
+            <div className="wgeu-home-image-quad" aria-hidden="true">
+              <figure className="wgeu-home-image-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=900&q=80"
+                  alt=""
+                />
+              </figure>
+              <figure className="wgeu-home-image-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?auto=format&fit=crop&w=900&q=80"
+                  alt=""
+                />
+              </figure>
+              <figure className="wgeu-home-image-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=80"
+                  alt=""
+                />
+              </figure>
+              <figure className="wgeu-home-image-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=900&q=80"
+                  alt=""
+                />
+              </figure>
+            </div>
           </div>
         </section>
 
         <section className="wgeu-home-create">
-          <div className="wgeu-creator-copy">
-            <h2>Create Your Board</h2>
-            <p>
-              You will get a public share link and a private admin link. Keep the admin link secure.
-            </p>
-            {!configured ? (
-              <div className="wgeu-config-warning">
-                Missing Supabase env vars. Add them to `.env.local` before creating links.
-              </div>
-            ) : null}
+          <div className="wgeu-home-create-inner">
+            <div className="wgeu-creator-copy">
+              <h2>Start a board</h2>
+              <p>Generate a member link and a private admin link for your organization.</p>
+              {!configured ? (
+                <div className="wgeu-config-warning">
+                  Missing Supabase env vars. Add them to `.env.local` before creating links.
+                </div>
+              ) : null}
+            </div>
+            <CreateGroupForm />
           </div>
-          <CreateGroupForm />
         </section>
       </section>
     </main>
   );
 }
-

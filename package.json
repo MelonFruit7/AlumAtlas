@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "repair:geocodes": "node scripts/repair-entry-geocodes.mjs",
+    "repair:geocodes:apply": "node scripts/repair-entry-geocodes.mjs --apply"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",

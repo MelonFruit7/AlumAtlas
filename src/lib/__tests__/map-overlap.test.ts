@@ -77,4 +77,36 @@ describe("resolveSpreadCoordinates", () => {
       expect(resultA.get(node.id)).toEqual(resultB.get(node.id));
     }
   });
+
+  it("uses enough default spread for dense same-location groups", () => {
+    const nodes = Array.from({ length: 6 }, (_, index) => ({
+      id: `person-${index}`,
+      lat: 34.0522,
+      lng: -118.2437,
+    }));
+
+    const result = resolveSpreadCoordinates(nodes, projectionContext);
+    const points = nodes
+      .map((node) => result.get(node.id))
+      .filter((point): point is { lat: number; lng: number } => point !== undefined)
+      .map((point) => projectionContext.project(point));
+
+    let minimumDistance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < points.length; i += 1) {
+      const a = points[i];
+      if (!a) continue;
+      for (let j = i + 1; j < points.length; j += 1) {
+        const b = points[j];
+        if (!b) continue;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance < minimumDistance) {
+          minimumDistance = distance;
+        }
+      }
+    }
+
+    expect(minimumDistance).toBeGreaterThan(150);
+  });
 });

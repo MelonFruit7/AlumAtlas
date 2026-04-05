@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getGroupBySlugMock, hasSupabaseServerEnvMock, searchLocationsMock } = vi.hoisted(() => ({
+const {
+  getGroupBySlugMock,
+  hasSupabaseServerEnvMock,
+  searchEntriesForGroupMock,
+  searchLocationsMock,
+} = vi.hoisted(() => ({
   getGroupBySlugMock: vi.fn(),
   hasSupabaseServerEnvMock: vi.fn(() => true),
+  searchEntriesForGroupMock: vi.fn(),
   searchLocationsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
   getGroupBySlug: getGroupBySlugMock,
+  searchEntriesForGroup: searchEntriesForGroupMock,
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -22,6 +29,7 @@ describe("GET /api/groups/[slug]/search", () => {
   beforeEach(() => {
     getGroupBySlugMock.mockReset();
     hasSupabaseServerEnvMock.mockReset();
+    searchEntriesForGroupMock.mockReset();
     searchLocationsMock.mockReset();
     hasSupabaseServerEnvMock.mockReturnValue(true);
     getGroupBySlugMock.mockResolvedValue({
@@ -36,6 +44,19 @@ describe("GET /api/groups/[slug]/search", () => {
   });
 
   it("returns mapped location results", async () => {
+    searchEntriesForGroupMock.mockResolvedValueOnce([
+      {
+        kind: "person",
+        id: "entry-1",
+        displayName: "Ari Knight",
+        companyName: "Google",
+        lat: 37.422,
+        lng: -122.084,
+        city: "Mountain View",
+        stateRegion: "California",
+        countryName: "United States",
+      },
+    ]);
     searchLocationsMock.mockResolvedValueOnce([
       {
         label: "Austin, Texas, United States",
@@ -55,11 +76,14 @@ describe("GET /api/groups/[slug]/search", () => {
       params: Promise.resolve({ slug: "demo" }),
     });
     const body = (await response.json()) as {
-      results?: Array<{ label?: string }>;
+      results?: Array<{ label?: string; kind?: string; displayName?: string }>;
     };
 
     expect(response.status).toBe(200);
-    expect(body.results?.[0]?.label).toBe("Austin, Texas, United States");
+    expect(body.results?.[0]?.kind).toBe("person");
+    expect(body.results?.[0]?.displayName).toBe("Ari Knight");
+    expect(body.results?.[1]?.kind).toBe("location");
+    expect(body.results?.[1]?.label).toBe("Austin, Texas, United States");
   });
 
   it("returns 404 when group slug is unknown", async () => {

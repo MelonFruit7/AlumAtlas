@@ -15,7 +15,6 @@ type EntryFormState = {
   linkedinUrl: string;
   companyName: string;
   companyDomain: string;
-  companyLogoUrl: string;
   locationText: string;
   profilePhotoUrl: string;
 };
@@ -25,7 +24,6 @@ const initialEntryFormState: EntryFormState = {
   linkedinUrl: "",
   companyName: "",
   companyDomain: "",
-  companyLogoUrl: "",
   locationText: "",
   profilePhotoUrl: "",
 };
@@ -36,7 +34,6 @@ function entryToForm(entry: EntryRecord): EntryFormState {
     linkedinUrl: entry.linkedin_url,
     companyName: entry.company_name,
     companyDomain: entry.company_domain,
-    companyLogoUrl: entry.company_logo_url ?? "",
     locationText: entry.location_text,
     profilePhotoUrl: entry.profile_photo_url ?? "",
   };
@@ -56,6 +53,7 @@ export function AdminExperience({ group: initialGroup }: Props) {
   const [settingsLocked, setSettingsLocked] = useState(initialGroup.submissions_locked);
   const [entryFormState, setEntryFormState] = useState<EntryFormState>(initialEntryFormState);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<"settings" | "entry">("settings");
 
   const isEntryFormValid = useMemo(() => {
     return (
@@ -188,7 +186,6 @@ export function AdminExperience({ group: initialGroup }: Props) {
         linkedinUrl: entryFormState.linkedinUrl,
         companyName: entryFormState.companyName,
         companyDomain: entryFormState.companyDomain,
-        companyLogoUrl: entryFormState.companyLogoUrl.trim() || undefined,
         locationText: entryFormState.locationText,
         profilePhotoUrl: entryFormState.profilePhotoUrl.trim() || undefined,
       };
@@ -244,8 +241,19 @@ export function AdminExperience({ group: initialGroup }: Props) {
   return (
     <section className="wgeu-admin-grid">
       <aside className="wgeu-panel">
-        <header className="wgeu-panel-header">
-          <h2>Board Admin</h2>
+        <header className="wgeu-panel-header wgeu-admin-panel-header">
+          <div className="wgeu-admin-header-row">
+            <h2>Board Admin</h2>
+            {authState === "authenticated" ? (
+              <button
+                className="wgeu-button wgeu-admin-logout"
+                type="button"
+                onClick={() => void handleLogout()}
+              >
+                Logout
+              </button>
+            ) : null}
+          </div>
           <p>
             Use this private page to manage entries, update board metadata, and lock submissions.
           </p>
@@ -272,166 +280,189 @@ export function AdminExperience({ group: initialGroup }: Props) {
           </form>
         ) : (
           <div className="wgeu-admin-stack">
-            <form className="wgeu-form" onSubmit={handleSaveSettings}>
-              <h3>Board Settings</h3>
-              <label className="wgeu-label">
-                Title
-                <input
-                  className="wgeu-input"
-                  value={settingsTitle}
-                  onChange={(event) => setSettingsTitle(event.target.value)}
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                Description
-                <textarea
-                  className="wgeu-input wgeu-textarea"
-                  value={settingsDescription}
-                  onChange={(event) => setSettingsDescription(event.target.value)}
-                />
-              </label>
-              <label className="wgeu-checkbox">
-                <input
-                  type="checkbox"
-                  checked={settingsLocked}
-                  onChange={(event) => setSettingsLocked(event.target.checked)}
-                />
-                Lock public submissions
-              </label>
-              <button className="wgeu-button wgeu-button-primary" type="submit">
-                Save Settings
+            <section
+              className={clsx("wgeu-admin-accordion-item", {
+                "wgeu-admin-accordion-open": activeSection === "settings",
+              })}
+            >
+              <button
+                className="wgeu-admin-accordion-toggle"
+                type="button"
+                onClick={() => setActiveSection("settings")}
+                aria-expanded={activeSection === "settings"}
+              >
+                <span>Board Settings</span>
+                <span className="wgeu-admin-accordion-icon">
+                  {activeSection === "settings" ? "−" : "+"}
+                </span>
               </button>
-            </form>
-
-            <form className="wgeu-form" onSubmit={handleSaveEntry}>
-              <h3>{editingEntryId ? "Edit Entry" : "Add Entry"}</h3>
-              <label className="wgeu-label">
-                Name
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.displayName}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      displayName: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                LinkedIn URL
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.linkedinUrl}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      linkedinUrl: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                Company Name
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.companyName}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      companyName: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                Company Domain
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.companyDomain}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      companyDomain: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                Company Logo URL (Optional)
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.companyLogoUrl}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      companyLogoUrl: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label className="wgeu-label">
-                Location
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.locationText}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      locationText: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="wgeu-label">
-                Profile Photo URL (Optional)
-                <input
-                  className="wgeu-input"
-                  value={entryFormState.profilePhotoUrl}
-                  onChange={(event) =>
-                    setEntryFormState((current) => ({
-                      ...current,
-                      profilePhotoUrl: event.target.value,
-                    }))
-                  }
-                />
-              </label>
-
-              <div className="wgeu-admin-actions">
-                <button
-                  className="wgeu-button wgeu-button-primary"
-                  type="submit"
-                  disabled={!isEntryFormValid}
-                >
-                  {editingEntryId ? "Update Entry" : "Add Entry"}
-                </button>
-                {editingEntryId ? (
-                  <button
-                    className="wgeu-button wgeu-button-secondary"
-                    type="button"
-                    onClick={() => {
-                      setEditingEntryId(null);
-                      setEntryFormState(initialEntryFormState);
-                    }}
+              {activeSection === "settings" ? (
+                <div className="wgeu-admin-accordion-body">
+                  <form
+                    className="wgeu-form wgeu-admin-accordion-form"
+                    onSubmit={handleSaveSettings}
                   >
-                    Cancel Edit
-                  </button>
-                ) : null}
-                <button
-                  className="wgeu-button wgeu-button-secondary"
-                  type="button"
-                  onClick={() => void handleLogout()}
-                >
-                  Logout
-                </button>
-              </div>
-            </form>
+                    <label className="wgeu-label">
+                      Title
+                      <input
+                        className="wgeu-input"
+                        value={settingsTitle}
+                        onChange={(event) => setSettingsTitle(event.target.value)}
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      Description
+                      <textarea
+                        className="wgeu-input wgeu-textarea"
+                        value={settingsDescription}
+                        onChange={(event) => setSettingsDescription(event.target.value)}
+                      />
+                    </label>
+                    <label className="wgeu-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={settingsLocked}
+                        onChange={(event) => setSettingsLocked(event.target.checked)}
+                      />
+                      Lock public submissions
+                    </label>
+                    <button className="wgeu-button wgeu-button-primary" type="submit">
+                      Save Settings
+                    </button>
+                  </form>
+                </div>
+              ) : null}
+            </section>
+
+            <section
+              className={clsx("wgeu-admin-accordion-item", {
+                "wgeu-admin-accordion-open": activeSection === "entry",
+              })}
+            >
+              <button
+                className="wgeu-admin-accordion-toggle"
+                type="button"
+                onClick={() => setActiveSection("entry")}
+                aria-expanded={activeSection === "entry"}
+              >
+                <span>{editingEntryId ? "Entry Editor (Editing)" : "Entry Editor"}</span>
+                <span className="wgeu-admin-accordion-icon">
+                  {activeSection === "entry" ? "−" : "+"}
+                </span>
+              </button>
+              {activeSection === "entry" ? (
+                <div className="wgeu-admin-accordion-body">
+                  <form className="wgeu-form wgeu-admin-accordion-form" onSubmit={handleSaveEntry}>
+                    <label className="wgeu-label">
+                      Name
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.displayName}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            displayName: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      LinkedIn URL
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.linkedinUrl}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            linkedinUrl: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      Company Name
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.companyName}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            companyName: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      Company Domain
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.companyDomain}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            companyDomain: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      Location
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.locationText}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            locationText: event.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="wgeu-label">
+                      Profile Photo URL (Optional)
+                      <input
+                        className="wgeu-input"
+                        value={entryFormState.profilePhotoUrl}
+                        onChange={(event) =>
+                          setEntryFormState((current) => ({
+                            ...current,
+                            profilePhotoUrl: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <div className="wgeu-admin-actions">
+                      <button
+                        className="wgeu-button wgeu-button-primary"
+                        type="submit"
+                        disabled={!isEntryFormValid}
+                      >
+                        {editingEntryId ? "Update Entry" : "Add Entry"}
+                      </button>
+                      {editingEntryId ? (
+                        <button
+                          className="wgeu-button wgeu-button-secondary"
+                          type="button"
+                          onClick={() => {
+                            setEditingEntryId(null);
+                            setEntryFormState(initialEntryFormState);
+                          }}
+                        >
+                          Cancel Edit
+                        </button>
+                      ) : null}
+                    </div>
+                  </form>
+                </div>
+              ) : null}
+            </section>
 
             {boardMessage ? (
               <p className={clsx("wgeu-message", `wgeu-message-${boardStatus}`)}>{boardMessage}</p>
@@ -442,7 +473,8 @@ export function AdminExperience({ group: initialGroup }: Props) {
 
       <section className="wgeu-admin-list">
         <header className="wgeu-map-header">
-          <div>
+          <div className="wgeu-map-title-wrap">
+            <span className="wgeu-map-kicker">Admin Command Center</span>
             <h2>{group.title}</h2>
             <p>
               {entries.length} {entries.length === 1 ? "entry" : "entries"} on board.
@@ -470,12 +502,13 @@ export function AdminExperience({ group: initialGroup }: Props) {
                       <button
                         className="wgeu-button wgeu-button-secondary"
                         type="button"
-                        onClick={() => {
-                          setEditingEntryId(entry.id);
-                          setEntryFormState(entryToForm(entry));
-                        }}
-                      >
-                        Edit
+                      onClick={() => {
+                        setEditingEntryId(entry.id);
+                        setEntryFormState(entryToForm(entry));
+                        setActiveSection("entry");
+                      }}
+                    >
+                      Edit
                       </button>
                       <button
                         className="wgeu-button wgeu-button-secondary"
@@ -500,4 +533,3 @@ export function AdminExperience({ group: initialGroup }: Props) {
     </section>
   );
 }
-

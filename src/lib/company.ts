@@ -15,13 +15,6 @@ export function companyLogoFromDomain(domain: string): string {
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
 }
 
-export function resolveCompanyLogoUrl(
-  domain: string,
-  manualLogoUrl?: string | null,
-): string {
-  const trimmedManual = manualLogoUrl?.trim();
-  if (trimmedManual) {
-    return trimmedManual;
-  }
+export function resolveCompanyLogoUrl(domain: string): string {
   return companyLogoFromDomain(domain);
 }

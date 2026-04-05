@@ -90,7 +90,6 @@ describe("upsertGroupEntry", () => {
       linkedinUrl: "www.linkedin.com/in/alex-rivera/",
       companyName: "Acme Corp",
       companyDomain: "https://acme.com/about",
-      companyLogoUrl: undefined,
       locationText: "Austin, TX",
       profilePhotoUrl: undefined,
       deviceToken: "device-token-xyz",
@@ -111,88 +110,6 @@ describe("upsertGroupEntry", () => {
       expect.objectContaining({ onConflict: "group_id,device_id_hash" }),
     );
     expect(result.id).toBe("entry-1");
-  });
-
-  it("stores manual company logo URL when provided", async () => {
-    const group = {
-      id: "group-2",
-      slug: "manual-logo-group",
-      title: "Manual Logo Group",
-      description: null,
-      submissions_locked: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const savedEntry = {
-      id: "entry-2",
-      group_id: group.id,
-      device_id_hash: "hash",
-      display_name: "Jamie Taylor",
-      linkedin_url: "https://www.linkedin.com/in/jamie-taylor",
-      company_name: "Acme Corp",
-      company_domain: "acme.com",
-      company_logo_url: "https://cdn.example.com/acme-logo.png",
-      profile_photo_url: null,
-      location_text: "Dallas, TX",
-      country_code: "US",
-      country_name: "United States",
-      state_region: "Texas",
-      city: "Dallas",
-      lat: 32.7767,
-      lng: -96.797,
-      is_us: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const groupsMaybeSingle = vi.fn().mockResolvedValue({ data: group, error: null });
-    const groupsEq = vi.fn(() => ({ maybeSingle: groupsMaybeSingle }));
-    const groupsSelect = vi.fn(() => ({ eq: groupsEq }));
-
-    const entriesSingle = vi.fn().mockResolvedValue({ data: savedEntry, error: null });
-    const entriesSelect = vi.fn(() => ({ single: entriesSingle }));
-    const entriesUpsert = vi.fn(() => ({ select: entriesSelect }));
-
-    createSupabaseServerClientMock.mockReturnValue({
-      from: (table: string) =>
-        table === "groups"
-          ? {
-              select: groupsSelect,
-            }
-          : {
-              upsert: entriesUpsert,
-            },
-    });
-
-    geocodeLocationMock.mockResolvedValue({
-      normalizedQuery: "dallas, tx",
-      lat: 32.7767,
-      lng: -96.797,
-      countryCode: "US",
-      countryName: "United States",
-      stateRegion: "Texas",
-      city: "Dallas",
-    });
-
-    const { upsertGroupEntry } = await import("@/lib/db");
-    await upsertGroupEntry("manual-logo-group", {
-      displayName: "Jamie Taylor",
-      linkedinUrl: "https://www.linkedin.com/in/jamie-taylor",
-      companyName: "Acme Corp",
-      companyDomain: "acme.com",
-      companyLogoUrl: "https://cdn.example.com/acme-logo.png",
-      locationText: "Dallas, TX",
-      profilePhotoUrl: undefined,
-      deviceToken: "device-token-xyz",
-    });
-
-    expect(entriesUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        company_logo_url: "https://cdn.example.com/acme-logo.png",
-      }),
-      expect.any(Object),
-    );
   });
 
   it("rejects normal submission when group submissions are locked", async () => {
@@ -228,7 +145,6 @@ describe("upsertGroupEntry", () => {
         linkedinUrl: "https://www.linkedin.com/in/taylor",
         companyName: "Acme Corp",
         companyDomain: "acme.com",
-        companyLogoUrl: undefined,
         locationText: "Austin, TX",
         profilePhotoUrl: undefined,
         deviceToken: "device-token-xyz",

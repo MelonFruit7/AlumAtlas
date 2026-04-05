@@ -1,6 +1,6 @@
-# WGEU (Where The Group Ended Up)
+# Alum Atlas
 
-Next.js MVP for creating group share links and visualizing where members ended up on a world map.
+Next.js app for student organizations to create share links and visualize where members and alumni ended up on a map.
 
 ## Stack
 
@@ -20,7 +20,6 @@ Next.js MVP for creating group share links and visualizing where members ended u
   - optional profile photo upload with in-app crop (pan + zoom)
   - LinkedIn URL (used as clickable name link)
   - company domain -> favicon logo URL
-  - optional custom company logo URL override
   - map with semantic zoom: `world -> country -> state -> city`
   - Geoapify location search for map fly-to
   - US-first depth; non-US is country-level aggregation.
@@ -66,6 +65,31 @@ Required env vars for priority path:
 ```bash
 npm run dev
 ```
+
+## One-Time Coordinate Repair
+
+If legacy entries have inaccurate geocodes, run the maintenance script:
+
+Dry-run (no DB writes):
+
+```bash
+npm run repair:geocodes
+```
+
+Apply updates:
+
+```bash
+npm run repair:geocodes:apply
+```
+
+Optional scope to one board:
+
+```bash
+npm run repair:geocodes -- --group-slug=my-board-slug
+```
+
+The script re-geocodes each `location_text` with Geoapify and updates only:
+`lat`, `lng`, `country_code`, `country_name`, `state_region`, `city`, `is_us`.
 
 ## API Routes
 
