@@ -942,6 +942,14 @@ a {
   min-height: 0;
 }
 
+.wgeu-group-grid-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.wgeu-group-grid-collapsed .wgeu-panel {
+  display: none;
+}
+
 .wgeu-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1096,6 +1104,20 @@ a {
   gap: 0.16rem;
 }
 
+.wgeu-map-description {
+  margin-top: 0.34rem;
+  color: #325066;
+  max-width: 58ch;
+  line-height: 1.36;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
 .wgeu-map-board-label {
   display: inline-flex;
   align-items: center;
@@ -1135,6 +1157,17 @@ a {
 
 .wgeu-search-wrap {
   position: relative;
+}
+
+.wgeu-map-actions {
+  display: grid;
+  gap: 0.48rem;
+  align-content: start;
+}
+
+.wgeu-pin-toggle {
+  justify-self: end;
+  white-space: nowrap;
 }
 
 .wgeu-search-status {
@@ -1819,18 +1852,24 @@ a {
 
 /* Dark Mode Overrides */
 .dark .wgeu-home-page {
-  background: linear-gradient(150deg, #101a2a 0%, #142133 58%, #18283c 100%);
+  background: linear-gradient(152deg, #0d1624 0%, #122031 58%, #16263a 100%);
 }
 
 .dark .wgeu-home-create {
-  background: linear-gradient(152deg, #111d2d 0%, #152436 100%);
+  background: linear-gradient(152deg, #101a2a 0%, #142235 100%);
   border-left-color: rgb(75 99 128 / 56%);
+}
+
+.dark .wgeu-home-create::before {
+  background:
+    radial-gradient(circle at 10% 10%, rgb(48 88 132 / 16%), transparent 42%),
+    linear-gradient(180deg, rgb(18 32 48 / 24%), transparent 28%);
 }
 
 .dark .wgeu-home-create-inner {
   border-color: #314761;
-  background: #152438;
-  box-shadow: none;
+  background: rgb(18 33 50 / 94%);
+  box-shadow: 0 18px 36px rgb(1 6 14 / 40%);
 }
 
 .dark .wgeu-home-hero h1 {
@@ -1843,6 +1882,10 @@ a {
 
 .dark .wgeu-home-create .wgeu-creator-copy p {
   color: #c3d2e4;
+}
+
+.dark .wgeu-home-create .wgeu-label {
+  color: #cdddf0;
 }
 
 .dark .wgeu-home-create .wgeu-link-card {
@@ -1977,6 +2020,10 @@ a {
 }
 
 .dark .wgeu-map-header p {
+  color: #b4c8dd;
+}
+
+.dark .wgeu-map-description {
   color: #b4c8dd;
 }
 

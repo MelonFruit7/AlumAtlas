@@ -68,6 +68,7 @@ const initialFormState: FormState = {
 
 export function GroupExperience({ group }: Props) {
   const [formState, setFormState] = useState<FormState>(initialFormState);
+  const [isPinSectionCollapsed, setIsPinSectionCollapsed] = useState(false);
   const [rawPhotoFile, setRawPhotoFile] = useState<File | null>(null);
   const [croppedPhotoFile, setCroppedPhotoFile] = useState<File | null>(null);
   const [croppedPreviewUrl, setCroppedPreviewUrl] = useState("");
@@ -416,8 +417,12 @@ export function GroupExperience({ group }: Props) {
   }
 
   return (
-    <section className="wgeu-group-grid">
-      <aside className="wgeu-panel">
+    <section
+      className={clsx("wgeu-group-grid", {
+        "wgeu-group-grid-collapsed": isPinSectionCollapsed,
+      })}
+    >
+      <aside className="wgeu-panel" id="wgeu-drop-pin-panel">
         <header className="wgeu-panel-header">
           <h2>Drop Your Pin</h2>
           <p>Add your location and current company. Your name links to LinkedIn.</p>
@@ -598,89 +603,107 @@ export function GroupExperience({ group }: Props) {
             <span className="wgeu-map-board-label">Alum Atlas Board</span>
             <h2>{group.title}</h2>
             {group.description ? (
-              <p>{group.description}</p>
+              <p className="wgeu-map-description" title={group.description}>
+                {group.description}
+              </p>
             ) : (
-              <p>Track where your student organization members and alumni landed.</p>
+              <p className="wgeu-map-description">
+                Track where your student organization members and alumni landed.
+              </p>
             )}
           </div>
 
-          <div className="wgeu-search-wrap" ref={searchWrapRef}>
-            <input
-              className="wgeu-input"
-              placeholder="Search people, city, state, or country"
-              value={searchValue}
-              onChange={(event) => {
-                setSearchValue(event.target.value);
-                setSearchMessage("");
-                if (event.target.value.trim().length >= 2) {
-                  setIsSearchOpen(true);
-                }
+          <div className="wgeu-map-actions">
+            <button
+              className="wgeu-button wgeu-button-secondary wgeu-pin-toggle"
+              type="button"
+              aria-expanded={!isPinSectionCollapsed}
+              aria-controls="wgeu-drop-pin-panel"
+              onClick={() => {
+                setIsPinSectionCollapsed((current) => !current);
               }}
-              onFocus={() => {
-                if (searchResults.length > 0) {
-                  setIsSearchOpen(true);
-                }
-              }}
-            />
-            {searchLoading ? <span className="wgeu-search-status">Searching...</span> : null}
-            {!searchLoading && searchMessage ? (
-              <span className="wgeu-search-status">{searchMessage}</span>
-            ) : null}
-            {isSearchOpen && searchResults.length > 0 ? (
-              <ul className="wgeu-search-results">
-                {searchResults.some((result) => result.kind === "person") ? (
-                  <li className="wgeu-search-section-label">People</li>
-                ) : null}
-                {searchResults
-                  .filter((result): result is PersonSearchResult => result.kind === "person")
-                  .map((result) => (
-                    <li key={`person-${result.id}`}>
-                      <button
-                        className="wgeu-search-result-button wgeu-search-result-person"
-                        type="button"
-                        onClick={() => {
-                          skipNextSearchRef.current = true;
-                          setSearchValue(result.displayName);
-                          closeSearchResults();
-                          mapController?.focusPerson(result.id, result.lat, result.lng);
-                        }}
-                      >
-                        <span className="wgeu-search-person-name">{result.displayName}</span>
-                        <span className="wgeu-search-person-meta">
-                          {result.companyName}
-                          {result.city ? ` · ${result.city}` : ""}
-                          {result.stateRegion ? `, ${result.stateRegion}` : ""}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                {searchResults.some((result) => result.kind === "location") ? (
-                  <li className="wgeu-search-section-label">Locations</li>
-                ) : null}
-                {searchResults
-                  .filter((result): result is LocationSearchResult => result.kind === "location")
-                  .map((result) => (
-                    <li key={`location-${result.lat}-${result.lng}-${result.label}`}>
-                      <button
-                        className="wgeu-search-result-button wgeu-search-result-location"
-                        type="button"
-                        onClick={() => {
-                          skipNextSearchRef.current = true;
-                          setSearchValue(result.label);
-                          closeSearchResults();
-                          mapController?.flyTo(
-                            result.lat,
-                            result.lng,
-                            semanticLevelToZoom(result.semanticLevel),
-                          );
-                        }}
-                      >
-                        {result.label}
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            ) : null}
+            >
+              {isPinSectionCollapsed ? "Show Entry Form" : "Focus Map View"}
+            </button>
+
+            <div className="wgeu-search-wrap" ref={searchWrapRef}>
+              <input
+                className="wgeu-input"
+                placeholder="Search people, city, state, or country"
+                value={searchValue}
+                onChange={(event) => {
+                  setSearchValue(event.target.value);
+                  setSearchMessage("");
+                  if (event.target.value.trim().length >= 2) {
+                    setIsSearchOpen(true);
+                  }
+                }}
+                onFocus={() => {
+                  if (searchResults.length > 0) {
+                    setIsSearchOpen(true);
+                  }
+                }}
+              />
+              {searchLoading ? <span className="wgeu-search-status">Searching...</span> : null}
+              {!searchLoading && searchMessage ? (
+                <span className="wgeu-search-status">{searchMessage}</span>
+              ) : null}
+              {isSearchOpen && searchResults.length > 0 ? (
+                <ul className="wgeu-search-results">
+                  {searchResults.some((result) => result.kind === "person") ? (
+                    <li className="wgeu-search-section-label">People</li>
+                  ) : null}
+                  {searchResults
+                    .filter((result): result is PersonSearchResult => result.kind === "person")
+                    .map((result) => (
+                      <li key={`person-${result.id}`}>
+                        <button
+                          className="wgeu-search-result-button wgeu-search-result-person"
+                          type="button"
+                          onClick={() => {
+                            skipNextSearchRef.current = true;
+                            setSearchValue(result.displayName);
+                            closeSearchResults();
+                            mapController?.focusPerson(result.id, result.lat, result.lng);
+                          }}
+                        >
+                          <span className="wgeu-search-person-name">{result.displayName}</span>
+                          <span className="wgeu-search-person-meta">
+                            {result.companyName}
+                            {result.city ? ` · ${result.city}` : ""}
+                            {result.stateRegion ? `, ${result.stateRegion}` : ""}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  {searchResults.some((result) => result.kind === "location") ? (
+                    <li className="wgeu-search-section-label">Locations</li>
+                  ) : null}
+                  {searchResults
+                    .filter((result): result is LocationSearchResult => result.kind === "location")
+                    .map((result) => (
+                      <li key={`location-${result.lat}-${result.lng}-${result.label}`}>
+                        <button
+                          className="wgeu-search-result-button wgeu-search-result-location"
+                          type="button"
+                          onClick={() => {
+                            skipNextSearchRef.current = true;
+                            setSearchValue(result.label);
+                            closeSearchResults();
+                            mapController?.flyTo(
+                              result.lat,
+                              result.lng,
+                              semanticLevelToZoom(result.semanticLevel),
+                            );
+                          }}
+                        >
+                          {result.label}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              ) : null}
+            </div>
           </div>
         </header>
 
